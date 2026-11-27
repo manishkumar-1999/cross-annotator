@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cross Annotator</title>
+  <meta name="description" content="Convert the species names in a microbiome abundance matrix between taxonomy databases (16S: SILVA, RDP 11.2, RDP 18; WGS: Kraken2, MetaPhlAn 3, MetaPhlAn 4).">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <h1>Cross Annotator</h1>
+      <p class="lede">Convert the species names in an abundance matrix from one taxonomy database to another.</p>
+      <p class="privacy"><span class="dot" aria-hidden="true"></span>Runs entirely in your browser. Your file is never uploaded anywhere.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card" aria-labelledby="convert-title">
+      <h2 id="convert-title">Convert a file</h2>
+
+      <form id="form" novalidate>
+        <div class="field">
+          <span class="label" id="file-label">1. Abundance matrix (CSV)</span>
+          <label class="dropzone" id="dropzone" for="file" aria-describedby="file-help">
+            <input type="file" id="file" accept=".csv,.tsv,.txt,text/csv" aria-labelledby="file-label">
+            <span class="dz-main" id="dz-main">Drop a file here or <u>choose a file</u></span>
+            <span class="dz-sub" id="dz-sub">Rows = samples, columns = species. First column = sample IDs.</span>
+          </label>
+          <p class="help" id="file-help">Values must be numbers (counts or relative abundances). A tab-separated file also works.</p>
+        </div>
+
+        <fieldset class="field">
+          <legend class="label">2. Sequence type</legend>
+          <div class="segmented" role="radiogroup">
+            <label><input type="radio" name="seq_type" value="16S" checked><span>16S</span></label>
+            <label><input type="radio" name="seq_type" value="WGS"><span>WGS</span></label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <span class="label">3. Databases</span>
+          <div class="db-row">
+            <label class="select-wrap">
+              <span class="sub-label">Source (names in your file)</span>
+              <select id="source_db"></select>
+            </label>
+            <span class="arrow" aria-hidden="true">&rarr;</span>
+            <label class="select-wrap">
+              <span class="sub-label">Target (convert to)</span>
+              <select id="target_db"></select>
+            </label>
+          </div>
+          <p class="help" id="mapping-help"></p>
+        </div>
+
+        <div class="field">
+          <label class="label" for="output">4. Output file name <span class="optional">(optional)</span></label>
+          <input type="text" id="output" placeholder="your_file_converted.csv" autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="convert" class="primary" disabled>Convert</button>
+          <span class="status" id="status" role="status" aria-live="polite"></span>
+        </div>
+        <div class="error" id="error" role="alert" hidden></div>
+      </form>
+    </section>
+
+    <section class="card" id="results" aria-labelledby="results-title" hidden>
+      <div class="results-head">
+        <div>
+          <h2 id="results-title">Result</h2>
+          <p class="meta" id="result-meta"></p>
+        </div>
+        <div class="downloads">
+          <button type="button" class="primary" id="dl-csv">Download CSV</button>
+          <button type="button" class="secondary" id="dl-summary">Download summary</button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats"></div>
+      <p class="note" id="case-note" hidden>“Case only” species have the same name in the target database, written with different upper/lower case. They keep the spelling from your file and are not counted as converted.</p>
+      <p class="note" id="wgs-note" hidden>The WGS mapping files list only species whose names differ between the two databases, so many “not found” species is normal: they already have the same name.</p>
+
+      <details id="merged-box">
+        <summary>Merged columns <span class="count" id="merged-count"></span></summary>
+        <div class="list" id="merged-list"></div>
+      </details>
+      <details id="converted-box">
+        <summary>Converted names <span class="count" id="converted-count"></span></summary>
+        <div class="list" id="converted-list"></div>
+      </details>
+      <details id="notfound-box">
+        <summary>Not found in the mapping file <span class="count" id="notfound-count"></span></summary>
+        <div class="list" id="notfound-list"></div>
+      </details>
+      <details>
+        <summary>Full summary text</summary>
+        <pre id="summary-text"></pre>
+      </details>
+    </section>
+
+    <section class="card info" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <ol class="steps">
+        <li>Each species column name is looked up in the mapping file for the databases you chose: left column = source name, right column = target name.</li>
+        <li>Found names are replaced with the target name. Names that differ only in upper/lower case keep your spelling (“case only”). Names that are not found keep their original name.</li>
+        <li>Columns that end up with the same name are added together, sample by sample, into one column.</li>
+        <li>You get the converted matrix (same samples, same layout) and a summary of what changed.</li>
+      </ol>
+
+      <h3>Allowed databases</h3>
+      <table class="db-table">
+        <thead><tr><th scope="col">Sequence type</th><th scope="col">Databases</th></tr></thead>
+        <tbody>
+          <tr><td>16S</td><td>SILVA, RDP 11.2, RDP 18</td></tr>
+          <tr><td>WGS</td><td>Kraken2 (k2), MetaPhlAn 3 (m3), MetaPhlAn 4 (m4)</td></tr>
+        </tbody>
+      </table>
+      <p class="help">The same conversion is available on the command line:
+        <code>cross_annotator -seq_type 16S -i matrix.csv -source_db RDP_11.2 -target_db SILVA</code></p>
+    </section>
+  </main>
+
+  <footer class="wrap site-footer">Cross Annotator 0.1.1 · same results as the command-line tool</footer>
+
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
